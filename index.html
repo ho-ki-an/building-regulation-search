@@ -133,6 +133,15 @@
       outline: none;
     }
 
+    #areaInput {
+      height: 54px;
+      font-size: 24px;
+    }
+
+    #areaInput::placeholder {
+      font-size: 16px;
+    }
+
     input[type="search"]:focus,
     select:focus {
       border-color: var(--accent);
@@ -561,6 +570,7 @@
     let resultOrder = [];
     let draggedKeyword = "";
     let pointerDraggedItem = null;
+    let searchReady = false;
 
     const searchUrls = {
       google: query => `https://www.google.com/search?q=${encodeURIComponent(query)}`,
@@ -598,21 +608,23 @@
       const hasArea = areaInput.value.trim().length > 0;
       keywordGrid.querySelectorAll(".open-link").forEach(link => {
         const keyword = link.dataset.keyword;
-        link.href = hasArea ? makeUrl(keyword) : "#";
-        link.setAttribute("aria-disabled", String(!hasArea));
+        link.href = hasArea && searchReady ? makeUrl(keyword) : "#";
+        link.setAttribute("aria-disabled", String(!hasArea || !searchReady));
       });
 
       const selected = getOrderedSelectedKeywords();
       selectedCount.textContent = selected.length;
       openSelected.disabled = selected.length === 0 || !hasArea;
-      renderResults(hasArea, selected);
+      renderResults(hasArea && searchReady, selected);
 
       if (!hasArea) {
         status.textContent = "行政区を入力すると各項目の検索リンクが有効になります。";
       } else if (selected.length === 0) {
         status.textContent = "検索したい規制項目を選択してください。";
+      } else if (!searchReady) {
+        status.textContent = "「選択項目を開く」を押すと、選択した項目の検索リンクが有効になります。";
       } else {
-        status.textContent = `${areaInput.value.trim()} と ${selected.length} 件の規制項目で検索できます。`;
+        status.textContent = `${areaInput.value.trim()} と ${selected.length} 件の検索リンクを表示しました。`;
       }
     }
 
@@ -704,7 +716,10 @@
         event.preventDefault();
       }
     });
-    areaInput.addEventListener("input", updateLinks);
+    areaInput.addEventListener("input", () => {
+      searchReady = false;
+      updateLinks();
+    });
     engineSelect.addEventListener("change", updateLinks);
     keywordFilter.addEventListener("input", renderKeywords);
 
@@ -795,8 +810,9 @@
         return;
       }
 
-      selected.forEach(keyword => window.open(makeUrl(keyword), "_blank", "noopener"));
-      status.innerHTML = `<strong>${selected.length}件</strong> の検索を開きました。表示されない場合は下の検索リンクから1件ずつ開いてください。`;
+      searchReady = true;
+      updateLinks();
+      status.innerHTML = `<strong>${selected.length}件</strong> の矢印と検索リンクを有効にしました。`;
     });
 
     copyQueries.addEventListener("click", async () => {
