@@ -136,6 +136,7 @@
     #areaInput {
       height: 54px;
       font-size: 24px;
+      font-weight: 400;
     }
 
     #areaInput::placeholder {
@@ -283,6 +284,10 @@
       opacity: .36;
     }
 
+    .open-link[aria-disabled="false"] {
+      font-size: 1.2em;
+    }
+
     .status {
       min-height: 34px;
       padding: 10px 18px 16px;
@@ -296,7 +301,7 @@
     }
 
     .results {
-      display: none;
+      display: none !important;
       border-top: 1px solid var(--line);
       background: #fff;
       padding: 14px 18px 18px;
@@ -546,6 +551,7 @@
     const coreKeywords = new Set([
       "都市計画区域",
       "用途地域",
+      "形態制限",
       "指定容積率",
       "指定建蔽率",
       "防火地域",
