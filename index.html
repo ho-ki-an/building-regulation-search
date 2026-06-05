@@ -313,6 +313,45 @@
       list-style: none;
     }
 
+    .result-item {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr);
+      align-items: stretch;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #f8fbfb;
+      transition: border-color .15s ease, opacity .15s ease;
+    }
+
+    .result-item.is-dragging {
+      opacity: .38;
+    }
+
+    .result-item.is-drag-over {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 2px rgba(197, 139, 40, .2);
+    }
+
+    .drag-handle {
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-right: 1px solid var(--line);
+      border-radius: 5px 0 0 5px;
+      background: #eef4f4;
+      color: var(--muted);
+      cursor: grab;
+      font-size: 18px;
+      line-height: 1;
+      touch-action: none;
+      user-select: none;
+    }
+
+    .drag-handle:active {
+      cursor: grabbing;
+    }
+
     .result-list a {
       min-height: 42px;
       display: flex;
@@ -320,17 +359,16 @@
       justify-content: space-between;
       gap: 10px;
       padding: 9px 11px;
-      border: 1px solid var(--line);
-      border-radius: 6px;
+      border: 0;
+      border-radius: 0 5px 5px 0;
       color: var(--accent-strong);
-      background: #f8fbfb;
+      background: transparent;
       text-decoration: none;
       font-weight: 800;
       overflow-wrap: anywhere;
     }
 
     .result-list a:hover {
-      border-color: var(--accent);
       background: #edf6f4;
     }
 
@@ -463,6 +501,7 @@
     const keywords = [
       "都市計画区域",
       "用途地域",
+      "形態制限",
       "指定容積率",
       "指定建蔽率",
       "防火地域",
@@ -482,7 +521,6 @@
       "浄化槽",
       "駐車場条例",
       "駐輪場条例",
-      "バリアフリー法",
       "バリアフリー条例",
       "中高層建築物条例",
       "建築基準条例",
@@ -493,8 +531,7 @@
       "流通業務市街地整備法",
       "特定都市河川浸水被害対策法",
       "建築協定区域",
-      "一団地の区域",
-      "形態制限"
+      "一団地の区域"
     ];
 
     const coreKeywords = new Set([
@@ -521,6 +558,9 @@
     const copyQueries = document.querySelector("#copyQueries");
     const results = document.querySelector("#results");
     const resultList = document.querySelector("#resultList");
+    let resultOrder = [];
+    let draggedKeyword = "";
+    let pointerDraggedItem = null;
 
     const searchUrls = {
       google: query => `https://www.google.com/search?q=${encodeURIComponent(query)}`,
@@ -544,6 +584,16 @@
       return Array.from(keywordGrid.querySelectorAll("input[type='checkbox']:checked")).map(input => input.value);
     }
 
+    function getOrderedSelectedKeywords() {
+      const selected = getSelectedKeywords();
+      const selectedSet = new Set(selected);
+      resultOrder = [
+        ...resultOrder.filter(keyword => selectedSet.has(keyword)),
+        ...selected.filter(keyword => !resultOrder.includes(keyword))
+      ];
+      return resultOrder;
+    }
+
     function updateLinks() {
       const hasArea = areaInput.value.trim().length > 0;
       keywordGrid.querySelectorAll(".open-link").forEach(link => {
@@ -552,7 +602,7 @@
         link.setAttribute("aria-disabled", String(!hasArea));
       });
 
-      const selected = getSelectedKeywords();
+      const selected = getOrderedSelectedKeywords();
       selectedCount.textContent = selected.length;
       openSelected.disabled = selected.length === 0 || !hasArea;
       renderResults(hasArea, selected);
@@ -574,12 +624,22 @@
 
       selected.forEach(keyword => {
         const item = document.createElement("li");
+        item.className = "result-item";
+        item.draggable = true;
+        item.dataset.keyword = keyword;
+
+        const handle = document.createElement("span");
+        handle.className = "drag-handle";
+        handle.textContent = "⋮⋮";
+        handle.title = "ドラッグして並べ替え";
+        handle.ariaLabel = `${keyword}を並べ替え`;
+
         const link = document.createElement("a");
         link.href = makeUrl(keyword);
         link.target = "_blank";
         link.rel = "noopener noreferrer";
         link.textContent = makeQuery(keyword);
-        item.append(link);
+        item.append(handle, link);
         resultList.append(item);
       });
     }
@@ -648,8 +708,88 @@
     engineSelect.addEventListener("change", updateLinks);
     keywordFilter.addEventListener("input", renderKeywords);
 
+    resultList.addEventListener("dragstart", event => {
+      const item = event.target.closest(".result-item");
+      if (!item) return;
+      draggedKeyword = item.dataset.keyword;
+      item.classList.add("is-dragging");
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", draggedKeyword);
+    });
+
+    resultList.addEventListener("dragover", event => {
+      const item = event.target.closest(".result-item");
+      if (!item || item.dataset.keyword === draggedKeyword) return;
+      event.preventDefault();
+      resultList.querySelectorAll(".is-drag-over").forEach(target => target.classList.remove("is-drag-over"));
+      item.classList.add("is-drag-over");
+      event.dataTransfer.dropEffect = "move";
+    });
+
+    resultList.addEventListener("dragleave", event => {
+      const item = event.target.closest(".result-item");
+      if (item && !item.contains(event.relatedTarget)) item.classList.remove("is-drag-over");
+    });
+
+    resultList.addEventListener("drop", event => {
+      const target = event.target.closest(".result-item");
+      if (!target || !draggedKeyword || target.dataset.keyword === draggedKeyword) return;
+      event.preventDefault();
+
+      const fromIndex = resultOrder.indexOf(draggedKeyword);
+      const targetIndex = resultOrder.indexOf(target.dataset.keyword);
+      const targetBox = target.getBoundingClientRect();
+      const placeAfter = event.clientY > targetBox.top + targetBox.height / 2;
+
+      resultOrder.splice(fromIndex, 1);
+      const adjustedTargetIndex = resultOrder.indexOf(target.dataset.keyword);
+      resultOrder.splice(adjustedTargetIndex + (placeAfter ? 1 : 0), 0, draggedKeyword);
+      renderResults(true, resultOrder);
+    });
+
+    resultList.addEventListener("dragend", () => {
+      draggedKeyword = "";
+      resultList.querySelectorAll(".result-item").forEach(item => {
+        item.classList.remove("is-dragging", "is-drag-over");
+      });
+    });
+
+    resultList.addEventListener("pointerdown", event => {
+      const handle = event.target.closest(".drag-handle");
+      if (!handle) return;
+
+      event.preventDefault();
+      pointerDraggedItem = handle.closest(".result-item");
+      pointerDraggedItem.classList.add("is-dragging");
+      handle.setPointerCapture?.(event.pointerId);
+    });
+
+    document.addEventListener("pointermove", event => {
+      if (!pointerDraggedItem) return;
+      event.preventDefault();
+
+      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(".result-item");
+      if (!target || target === pointerDraggedItem || !resultList.contains(target)) return;
+
+      const box = target.getBoundingClientRect();
+      const sameRow = Math.abs(event.clientY - (box.top + box.height / 2)) < box.height / 2;
+      const placeAfter = sameRow
+        ? event.clientX > box.left + box.width / 2
+        : event.clientY > box.top + box.height / 2;
+
+      resultList.insertBefore(pointerDraggedItem, placeAfter ? target.nextSibling : target);
+    }, { passive: false });
+
+    document.addEventListener("pointerup", () => {
+      if (!pointerDraggedItem) return;
+
+      pointerDraggedItem.classList.remove("is-dragging");
+      resultOrder = Array.from(resultList.querySelectorAll(".result-item")).map(item => item.dataset.keyword);
+      pointerDraggedItem = null;
+    });
+
     openSelected.addEventListener("click", () => {
-      const selected = getSelectedKeywords();
+      const selected = getOrderedSelectedKeywords();
       if (!areaInput.value.trim() || selected.length === 0) {
         updateLinks();
         return;
@@ -660,7 +800,7 @@
     });
 
     copyQueries.addEventListener("click", async () => {
-      const selected = getSelectedKeywords();
+      const selected = getOrderedSelectedKeywords();
       const targets = selected.length > 0 ? selected : keywords;
       const text = targets.map(makeQuery).join("\n");
 
