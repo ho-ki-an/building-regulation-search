@@ -241,6 +241,14 @@
       background: #fbfdfd;
     }
 
+    .grid.search-ready .item:has(input:not(:checked)) {
+      background: #edf1f3;
+    }
+
+    .grid.search-ready .item:has(input:not(:checked)):hover {
+      background: #e5ebee;
+    }
+
     .item label {
       height: 100%;
       display: grid;
@@ -612,6 +620,7 @@
 
     function updateLinks() {
       const hasArea = areaInput.value.trim().length > 0;
+      keywordGrid.classList.toggle("search-ready", searchReady);
       keywordGrid.querySelectorAll(".open-link").forEach(link => {
         const keyword = link.dataset.keyword;
         link.href = hasArea && searchReady ? makeUrl(keyword) : "#";
