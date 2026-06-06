@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>建築規制検索</title>
+  <title>建築基準法関係規定等規制検索</title>
   <style>
     :root {
       color-scheme: light;
@@ -553,7 +553,7 @@
       <div class="brand">
         <div class="brand-mark" aria-hidden="true"></div>
         <div>
-          <h1>建築規制検索</h1>
+          <h1>建築基準法関係規定等規制検索</h1>
           <p class="lead">行政区名と規制項目を組み合わせて、計画地調査の初動検索をまとめて作成します。</p>
         </div>
       </div>
@@ -585,7 +585,6 @@
       <div class="toolbar">
         <div class="chips" aria-label="選択操作">
           <button class="chip" id="selectAll" type="button">全選択</button>
-          <button class="chip" id="selectCore" type="button">主要項目</button>
           <button class="chip" id="clearAll" type="button">解除</button>
         </div>
         <input class="query-filter" id="keywordFilter" type="search" placeholder="項目を絞り込み">
@@ -636,21 +635,6 @@
       "建築協定区域",
       "一団地の区域"
     ];
-
-    const coreKeywords = new Set([
-      "都市計画区域",
-      "用途地域",
-      "形態制限",
-      "指定容積率",
-      "指定建蔽率",
-      "防火地域",
-      "高度地区",
-      "日影規制",
-      "道路",
-      "下水道",
-      "建築基準条例",
-      "地区計画"
-    ]);
 
     const areaInput = document.querySelector("#areaInput");
     const engineSelect = document.querySelector("#engineSelect");
@@ -795,12 +779,6 @@
 
     document.querySelector("#selectAll").addEventListener("click", () => setVisibleChecks(true));
     document.querySelector("#clearAll").addEventListener("click", () => setVisibleChecks(false));
-    document.querySelector("#selectCore").addEventListener("click", () => {
-      keywordGrid.querySelectorAll("input[type='checkbox']").forEach(input => {
-        input.checked = coreKeywords.has(input.value);
-      });
-      updateLinks();
-    });
 
     keywordGrid.addEventListener("change", updateLinks);
     keywordGrid.addEventListener("click", event => {
